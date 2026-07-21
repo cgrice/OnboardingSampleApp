@@ -4,8 +4,7 @@ const TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'customer-info', label: 'Customer Info' },
   { id: 'data-mapping', label: 'Data Mapping' },
-  { id: 'tenant-setup', label: 'Tenant Setup' },
-  { id: 'import', label: 'Import' }
+  { id: 'tenant-setup', label: 'Tenant Setup' }
 ];
 
 function App() {
@@ -65,13 +64,10 @@ function App() {
         {activeTab === 'customer-info' && (
           <PlaceholderTab title="Customer Info" description="Collect and validate customer information" />
         )}
-        {activeTab === 'data-mapping' && (
-          <PlaceholderTab title="Data Mapping" description="Map customer data to platform configuration" />
-        )}
+        {activeTab === 'data-mapping' && <ImportTab />}
         {activeTab === 'tenant-setup' && (
           <TenantSetupTab />
         )}
-        {activeTab === 'import' && <ImportTab />}
       </main>
     </div>
   );

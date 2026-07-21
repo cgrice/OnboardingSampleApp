@@ -5,9 +5,9 @@ const path = require('path');
 test.describe('Import Clients', () => {
   test('imports and maps Customer A clients CSV', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Import' }).click();
+    await page.getByRole('button', { name: 'Data Mapping' }).click();
 
-    // The Import tab renders its own heading and controls.
+    // The Data Mapping tab renders the importer's heading and controls.
     await expect(page.getByRole('heading', { name: 'Import Clients' })).toBeVisible();
 
     // Customer A should be preselected in the dropdown.
