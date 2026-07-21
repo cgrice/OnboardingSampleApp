@@ -5,8 +5,7 @@ const TABS = [
   { id: 'customer-info', label: 'Customer Info' },
   { id: 'data-mapping', label: 'Data Mapping' },
   { id: 'tenant-setup', label: 'Tenant Setup' },
-  { id: 'import', label: 'Import' },
-  { id: 'import-contacts', label: 'Import Contacts' }
+  { id: 'import', label: 'Import' }
 ];
 
 function App() {
@@ -72,8 +71,7 @@ function App() {
         {activeTab === 'tenant-setup' && (
           <TenantSetupTab />
         )}
-        {activeTab === 'import' && <ImportTab config={CLIENTS_IMPORT} />}
-        {activeTab === 'import-contacts' && <ImportTab config={CONTACTS_IMPORT} />}
+        {activeTab === 'import' && <ImportTab />}
       </main>
     </div>
   );
@@ -279,30 +277,46 @@ const CONTACT_COLUMNS = [
 ];
 
 // Each entity the importer supports is described declaratively; the ImportTab
-// component is entity-agnostic and driven entirely by one of these configs.
-const CLIENTS_IMPORT = {
-  heading: 'Import Clients',
-  description: 'Upload a client CSV export and map it to the shared data model.',
-  adaptersUrl: '/api/import/adapters',
-  importUrl: '/api/import/clients',
-  columns: CLIENT_COLUMNS
-};
+// is entity-agnostic and driven by whichever config the Type selector picks.
+const IMPORT_ENTITIES = [
+  {
+    id: 'clients',
+    label: 'Clients',
+    heading: 'Import Clients',
+    description: 'Upload a client CSV export and map it to the shared data model.',
+    adaptersUrl: '/api/import/adapters',
+    importUrl: '/api/import/clients',
+    columns: CLIENT_COLUMNS
+  },
+  {
+    id: 'contacts',
+    label: 'Contacts',
+    heading: 'Import Contacts',
+    description: 'Upload a contact CSV export and map it to the shared data model.',
+    adaptersUrl: '/api/import/contact-adapters',
+    importUrl: '/api/import/contacts',
+    columns: CONTACT_COLUMNS
+  }
+];
 
-const CONTACTS_IMPORT = {
-  heading: 'Import Contacts',
-  description: 'Upload a contact CSV export and map it to the shared data model.',
-  adaptersUrl: '/api/import/contact-adapters',
-  importUrl: '/api/import/contacts',
-  columns: CONTACT_COLUMNS
-};
-
-function ImportTab({ config }) {
+function ImportTab() {
+  const [entityId, setEntityId] = useState(IMPORT_ENTITIES[0].id);
   const [adapters, setAdapters] = useState([]);
   const [customer, setCustomer] = useState('');
   const [file, setFile] = useState(null);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
   const [importing, setImporting] = useState(false);
+
+  const config = IMPORT_ENTITIES.find((e) => e.id === entityId);
+
+  const handleEntityChange = (e) => {
+    setEntityId(e.target.value);
+    // Switching entity invalidates any prior file selection or result.
+    setFile(null);
+    setResult(null);
+    setError(null);
+  };
 
   useEffect(() => {
     fetch(config.adaptersUrl)
@@ -344,6 +358,15 @@ function ImportTab({ config }) {
       </p>
 
       <div className="import-controls" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
+        <label>
+          Type:{' '}
+          <select value={entityId} onChange={handleEntityChange}>
+            {IMPORT_ENTITIES.map((e) => (
+              <option key={e.id} value={e.id}>{e.label}</option>
+            ))}
+          </select>
+        </label>
+
         <label>
           Customer:{' '}
           <select value={customer} onChange={(e) => setCustomer(e.target.value)}>

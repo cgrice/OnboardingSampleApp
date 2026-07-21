@@ -5,13 +5,13 @@ const path = require('path');
 test.describe('Import Clients', () => {
   test('imports and maps Customer A clients CSV', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await page.getByRole('button', { name: 'Import' }).click();
 
     // The Import tab renders its own heading and controls.
     await expect(page.getByRole('heading', { name: 'Import Clients' })).toBeVisible();
 
-    // Customer A should be preselected in the dropdown.
-    await expect(page.locator('select')).toContainText('Customer A');
+    // Customer A should be preselected in the customer dropdown.
+    await expect(page.getByRole('combobox').nth(1)).toContainText('Customer A');
 
     // Upload the real sample CSV.
     const csvPath = path.resolve(
