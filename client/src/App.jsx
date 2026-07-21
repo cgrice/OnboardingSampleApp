@@ -71,9 +71,7 @@ function App() {
         {activeTab === 'tenant-setup' && (
           <TenantSetupTab />
         )}
-        {activeTab === 'import' && (
-          <PlaceholderTab title="Import" description="Import customer data into the platform" />
-        )}
+        {activeTab === 'import' && <ImportTab />}
       </main>
     </div>
   );
@@ -249,6 +247,149 @@ function Checklist({ steps }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+const CLIENT_COLUMNS = [
+  { key: 'id', label: 'ID' },
+  { key: 'name', label: 'Name' },
+  { key: 'entityType', label: 'Entity Type' },
+  { key: 'status', label: 'Status' },
+  { key: 'onboardedDate', label: 'Onboarded' },
+  { key: 'taxId', label: 'Tax ID' },
+  { key: 'annualRevenue', label: 'Annual Revenue' },
+  { key: 'industry', label: 'Industry' },
+  { key: 'paymentTerms', label: 'Payment Terms' },
+  { key: 'primaryContact', label: 'Primary Contact' }
+];
+
+function ImportTab() {
+  const [adapters, setAdapters] = useState([]);
+  const [customer, setCustomer] = useState('');
+  const [file, setFile] = useState(null);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
+  const [importing, setImporting] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/import/adapters')
+      .then((res) => res.json())
+      .then((list) => {
+        setAdapters(list);
+        if (list.length > 0) setCustomer(list[0].key);
+      })
+      .catch((err) => setError(`Could not load customers: ${err.message}`));
+  }, []);
+
+  const handleImport = async () => {
+    if (!file || !customer) return;
+    setImporting(true);
+    setError(null);
+    setResult(null);
+    try {
+      const text = await file.text();
+      const res = await fetch(`/api/import/clients?customer=${encodeURIComponent(customer)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/csv' },
+        body: text
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      setResult(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <div>
+      <h2>Import Clients</h2>
+      <p style={{ color: '#6b7280', marginBottom: '20px' }}>
+        Upload a client CSV export and map it to the shared data model.
+      </p>
+
+      <div className="import-controls" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
+        <label>
+          Customer:{' '}
+          <select value={customer} onChange={(e) => setCustomer(e.target.value)}>
+            {adapters.map((a) => (
+              <option key={a.key} value={a.key}>{a.label}</option>
+            ))}
+          </select>
+        </label>
+
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onChange={(e) => setFile(e.target.files[0] || null)}
+        />
+
+        <button className="import-btn" onClick={handleImport} disabled={!file || !customer || importing}>
+          {importing ? 'Importing…' : 'Import & Map'}
+        </button>
+      </div>
+
+      {error && (
+        <div className="placeholder">
+          <p style={{ color: '#dc2626' }}>⚠️ {error}</p>
+        </div>
+      )}
+
+      {result && <ImportResult result={result} />}
+    </div>
+  );
+}
+
+function ImportResult({ result }) {
+  const { summary, records, customer } = result;
+  return (
+    <div>
+      <div style={{ marginBottom: '16px' }}>
+        <strong>{summary.mapped}</strong> record(s) mapped from <em>{customer}</em>.{' '}
+        {summary.unmappedColumns.length > 0 && (
+          <span style={{ color: '#d97706' }}>
+            Ignored columns: {summary.unmappedColumns.join(', ')}.{' '}
+          </span>
+        )}
+        {summary.unmappedValues > 0 && (
+          <span style={{ color: '#d97706' }}>
+            {summary.unmappedValues} value(s) not recognized (passed through).{' '}
+          </span>
+        )}
+        {summary.unparseableValues > 0 && (
+          <span style={{ color: '#d97706' }}>
+            {summary.unparseableValues} date/number(s) left as text.
+          </span>
+        )}
+      </div>
+
+      <div style={{ overflowX: 'auto' }}>
+        <table className="import-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.85rem' }}>
+          <thead>
+            <tr>
+              {CLIENT_COLUMNS.map((col) => (
+                <th key={col.key} style={{ textAlign: 'left', padding: '6px 10px', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' }}>
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((row, i) => (
+              <tr key={row.id || i}>
+                {CLIENT_COLUMNS.map((col) => (
+                  <td key={col.key} style={{ padding: '6px 10px', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' }}>
+                    {String(row[col.key])}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
