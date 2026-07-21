@@ -1,6 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const store = require('./data/store');
+const { parseCsv } = require('./import/csvParser');
+const { mapClients } = require('./import/mapper');
+const { getAdapter, listAdapters } = require('./import/adapters');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -8,6 +11,8 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Accept raw CSV uploads as text/csv (client posts file contents directly).
+app.use(express.text({ type: ['text/csv', 'text/plain'], limit: '5mb' }));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -63,6 +68,36 @@ app.get('/api/tenants/:customerId', (req, res) => {
     return res.status(404).json({ error: 'Tenant not found' });
   }
   res.json(tenant);
+});
+
+// List available import adapters (for the UI customer dropdown)
+app.get('/api/import/adapters', (req, res) => {
+  res.json(listAdapters());
+});
+
+// Import & map a Clients CSV.
+// Body: raw CSV text. Query: ?customer=<adapterKey>
+app.post('/api/import/clients', (req, res) => {
+  const customerKey = req.query.customer;
+  const adapter = getAdapter(customerKey);
+
+  if (!adapter) {
+    return res.status(400).json({
+      error: `Unknown customer '${customerKey}'. Known: ${listAdapters()
+        .map((a) => a.key)
+        .join(', ')}`
+    });
+  }
+
+  const csvText = typeof req.body === 'string' ? req.body : '';
+  if (!csvText.trim()) {
+    return res.status(400).json({ error: 'Empty CSV body' });
+  }
+
+  const rows = parseCsv(csvText);
+  const { records, summary } = mapClients(rows, adapter);
+
+  res.json({ customer: adapter.label, records, summary });
 });
 
 // Start server
