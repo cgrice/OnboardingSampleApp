@@ -160,6 +160,7 @@ Intentionally boring and fast:
 |--------|----------|-------------|
 | GET | `/api/health` | Health check |
 | GET | `/api/customers` | List all customers |
+| POST | `/api/customers` | Create a customer (starts onboarding at 0%) |
 | GET | `/api/customers/:id` | Get customer by ID |
 | GET | `/api/customers/:id/onboarding` | Get onboarding state |
 | GET | `/api/onboarding` | Dashboard view (all states + customer info) |
