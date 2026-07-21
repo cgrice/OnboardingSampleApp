@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const store = require('./data/store');
+const { createCustomer, createDefaultOnboardingSteps } = require('./models');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -26,6 +27,31 @@ app.get('/api/customers/:id', (req, res) => {
     return res.status(404).json({ error: 'Customer not found' });
   }
   res.json(customer);
+});
+
+// Create a new customer (and start their onboarding)
+app.post('/api/customers', (req, res) => {
+  const { name, industry, region, contactEmail } = req.body || {};
+
+  if (typeof name !== 'string' || name.trim() === '') {
+    return res.status(400).json({ error: 'Name is required' });
+  }
+
+  const customer = createCustomer({
+    name: name.trim(),
+    industry,
+    region,
+    contactEmail
+  });
+  store.addCustomer(customer);
+
+  store.addOnboardingState({
+    customerId: customer.id,
+    steps: createDefaultOnboardingSteps(),
+    progressPercent: 0
+  });
+
+  res.status(201).json(customer);
 });
 
 // Get onboarding state for a customer
@@ -65,8 +91,12 @@ app.get('/api/tenants/:customerId', (req, res) => {
   res.json(tenant);
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Onboarding API server running at http://localhost:${PORT}`);
-  console.log(`   Health check: http://localhost:${PORT}/api/health`);
-});
+// Start server (only when run directly, so tests can import the app)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Onboarding API server running at http://localhost:${PORT}`);
+    console.log(`   Health check: http://localhost:${PORT}/api/health`);
+  });
+}
+
+module.exports = app;
