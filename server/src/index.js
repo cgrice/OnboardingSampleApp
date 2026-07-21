@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const store = require('./data/store');
-const { createCustomer, createDefaultOnboardingSteps } = require('./models');
+const { createCustomer, createTenant, createDefaultOnboardingSteps } = require('./models');
 const { parseCsv } = require('./import/csvParser');
 const { mapClients } = require('./import/mapper');
 const { getAdapter, listAdapters } = require('./import/adapters');
@@ -49,6 +49,9 @@ app.post('/api/customers', (req, res) => {
     contactEmail
   });
   store.addCustomer(customer);
+
+  // Every customer gets a tenant so it can be provisioned from the Tenant Setup tab.
+  store.addTenant(createTenant({ customerId: customer.id }));
 
   store.addOnboardingState({
     customerId: customer.id,

@@ -51,4 +51,20 @@ describe('POST /api/customers', () => {
       .send({ name: '   ' });
     assert.strictEqual(res.status, 400);
   });
+
+  it('creates a pending tenant so the new customer can be provisioned', async () => {
+    const created = await request(app)
+      .post('/api/customers')
+      .send({ name: 'Wayne Enterprises' });
+
+    const tenant = await request(app).get(`/api/tenants/${created.body.id}`);
+    assert.strictEqual(tenant.status, 200);
+    assert.strictEqual(tenant.body.customerId, created.body.id);
+    assert.strictEqual(tenant.body.status, 'pending');
+
+    const provisioned = await request(app)
+      .post(`/api/tenants/${created.body.id}/provision`);
+    assert.strictEqual(provisioned.status, 200);
+    assert.strictEqual(provisioned.body.status, 'active');
+  });
 });

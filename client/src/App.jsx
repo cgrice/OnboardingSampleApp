@@ -394,30 +394,40 @@ function ImportResult({ result }) {
 }
 
 function TenantSetupTab() {
-  const [customer, setCustomer] = useState(null);
+  const [customers, setCustomers] = useState([]);
+  const [selectedId, setSelectedId] = useState('');
   const [tenant, setTenant] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [tenantLoading, setTenantLoading] = useState(false);
   const [provisioning, setProvisioning] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     fetch('/api/customers')
       .then(res => res.json())
-      .then(customers => {
-        const first = customers[0];
-        setCustomer(first);
-        if (!first) { setLoading(false); return; }
-        return fetch(`/api/tenants/${first.id}`)
-          .then(res => (res.ok ? res.json() : null))
-          .then(t => { setTenant(t); setLoading(false); });
+      .then(list => {
+        setCustomers(list);
+        setSelectedId(list[0]?.id || '');
+        setLoading(false);
       })
       .catch(err => { setError(err.message); setLoading(false); });
   }, []);
 
+  // Load the tenant whenever the selected customer changes.
+  useEffect(() => {
+    if (!selectedId) { setTenant(null); return; }
+    setTenantLoading(true);
+    setError(null);
+    fetch(`/api/tenants/${selectedId}`)
+      .then(res => (res.ok ? res.json() : null))
+      .then(t => { setTenant(t); setTenantLoading(false); })
+      .catch(err => { setError(err.message); setTenantLoading(false); });
+  }, [selectedId]);
+
   const handleProvision = () => {
     setProvisioning(true);
     setError(null);
-    fetch(`/api/tenants/${customer.id}/provision`, { method: 'POST' })
+    fetch(`/api/tenants/${selectedId}/provision`, { method: 'POST' })
       .then(res => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -427,19 +437,35 @@ function TenantSetupTab() {
   };
 
   if (loading) return <div className="placeholder"><p>Loading...</p></div>;
-  if (!customer) return <div className="placeholder"><p>No customer found</p></div>;
+  if (customers.length === 0) return <div className="placeholder"><p>No customer found</p></div>;
 
+  const selectedCustomer = customers.find(c => c.id === selectedId);
   const isActive = tenant?.status === 'active';
 
   return (
     <div className="placeholder">
       <h2>Tenant Setup</h2>
-      <p>Customer: <strong>{customer.name}</strong></p>
-      <p>Tenant status: <strong className="tenant-status">{tenant ? tenant.status : 'no tenant'}</strong></p>
+
+      <label style={{ display: 'block', marginBottom: '12px' }}>
+        Customer:{' '}
+        <select
+          aria-label="Customer"
+          value={selectedId}
+          onChange={(e) => setSelectedId(e.target.value)}
+          disabled={provisioning}
+        >
+          {customers.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </label>
+
+      {selectedCustomer && <p>Customer: <strong>{selectedCustomer.name}</strong></p>}
+      <p>Tenant status: <strong className="tenant-status">{tenantLoading ? 'loading...' : (tenant ? tenant.status : 'no tenant')}</strong></p>
       <button
         className="tab"
         onClick={handleProvision}
-        disabled={provisioning || isActive || !tenant}
+        disabled={provisioning || isActive || !tenant || tenantLoading}
         style={{ marginTop: '16px' }}
       >
         {isActive ? 'Tenant active' : provisioning ? 'Setting up...' : 'Set up tenant'}
