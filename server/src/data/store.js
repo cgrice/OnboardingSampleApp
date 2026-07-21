@@ -3,7 +3,7 @@
  * Simple storage for the training exercise - no database needed
  */
 
-const { createCustomer, createTenant, createDefaultOnboardingSteps } = require('../models');
+const { createCustomer, createTenant, createDefaultOnboardingSteps, calculateProgress } = require('../models');
 
 // In-memory storage
 const store = {
@@ -97,6 +97,26 @@ function updateOnboardingState(customerId, updates) {
   return null;
 }
 
+function provisionTenant(customerId) {
+  const tenant = store.tenants.find(t => t.customerId === customerId);
+  if (!tenant) {
+    return null;
+  }
+
+  tenant.status = 'active';
+
+  const state = store.onboardingStates.find(s => s.customerId === customerId);
+  if (state) {
+    const step = state.steps.find(s => s.name === 'Tenant Setup');
+    if (step) {
+      step.status = 'completed';
+    }
+    state.progressPercent = calculateProgress(state.steps);
+  }
+
+  return tenant;
+}
+
 module.exports = {
   getCustomers,
   getCustomerById,
@@ -107,5 +127,6 @@ module.exports = {
   getOnboardingState,
   getAllOnboardingStates,
   addOnboardingState,
-  updateOnboardingState
+  updateOnboardingState,
+  provisionTenant
 };
