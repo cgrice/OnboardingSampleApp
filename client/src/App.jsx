@@ -69,7 +69,7 @@ function App() {
           <PlaceholderTab title="Data Mapping" description="Map customer data to platform configuration" />
         )}
         {activeTab === 'tenant-setup' && (
-          <PlaceholderTab title="Tenant Setup" description="Provision and configure customer tenant" />
+          <TenantSetupTab />
         )}
         {activeTab === 'import' && (
           <PlaceholderTab title="Import" description="Import customer data into the platform" />
@@ -249,6 +249,62 @@ function Checklist({ steps }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function TenantSetupTab() {
+  const [customer, setCustomer] = useState(null);
+  const [tenant, setTenant] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [provisioning, setProvisioning] = useState(false);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/customers')
+      .then(res => res.json())
+      .then(customers => {
+        const first = customers[0];
+        setCustomer(first);
+        if (!first) { setLoading(false); return; }
+        return fetch(`/api/tenants/${first.id}`)
+          .then(res => (res.ok ? res.json() : null))
+          .then(t => { setTenant(t); setLoading(false); });
+      })
+      .catch(err => { setError(err.message); setLoading(false); });
+  }, []);
+
+  const handleProvision = () => {
+    setProvisioning(true);
+    setError(null);
+    fetch(`/api/tenants/${customer.id}/provision`, { method: 'POST' })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(updated => { setTenant(updated); setProvisioning(false); })
+      .catch(err => { setError(err.message); setProvisioning(false); });
+  };
+
+  if (loading) return <div className="placeholder"><p>Loading...</p></div>;
+  if (!customer) return <div className="placeholder"><p>No customer found</p></div>;
+
+  const isActive = tenant?.status === 'active';
+
+  return (
+    <div className="placeholder">
+      <h2>Tenant Setup</h2>
+      <p>Customer: <strong>{customer.name}</strong></p>
+      <p>Tenant status: <strong className="tenant-status">{tenant ? tenant.status : 'no tenant'}</strong></p>
+      <button
+        className="tab"
+        onClick={handleProvision}
+        disabled={provisioning || isActive || !tenant}
+        style={{ marginTop: '16px' }}
+      >
+        {isActive ? 'Tenant active' : provisioning ? 'Setting up...' : 'Set up tenant'}
+      </button>
+      {error && <p style={{ color: '#dc2626', marginTop: '12px' }}>⚠️ {error}</p>}
+    </div>
   );
 }
 

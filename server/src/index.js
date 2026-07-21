@@ -91,6 +91,15 @@ app.get('/api/tenants/:customerId', (req, res) => {
   res.json(tenant);
 });
 
+// Provision a tenant (pending -> active, marks Tenant Setup step complete)
+app.post('/api/tenants/:customerId/provision', (req, res) => {
+  const tenant = store.provisionTenant(req.params.customerId);
+  if (!tenant) {
+    return res.status(404).json({ error: 'Tenant not found' });
+  }
+  res.json(tenant);
+});
+
 // Start server (only when run directly, so tests can import the app)
 if (require.main === module) {
   app.listen(PORT, () => {
