@@ -1,12 +1,15 @@
 /**
  * Mapper — the generic transform engine.
  *
- * Takes parsed CSV rows plus an adapter config and produces normalized Client
- * records against the shared model. Adapter-agnostic: all customer-specific
- * knowledge lives in the adapter, so the same engine handles every customer.
+ * Takes parsed CSV rows plus an adapter config and produces normalized records
+ * against a shared model. Adapter-agnostic AND entity-agnostic: all
+ * customer-specific knowledge lives in the adapter, and the target model is
+ * supplied as a factory, so the same engine handles every customer and every
+ * entity (Client, Contact, …).
  */
 
 const { createClient } = require('../models/client');
+const { createContact } = require('../models/contact');
 
 /**
  * Parses a date string in a known format into ISO YYYY-MM-DD.
@@ -61,13 +64,16 @@ function parseNumber(value) {
 }
 
 /**
- * Maps parsed CSV rows into normalized Client records using an adapter.
+ * Maps parsed CSV rows into normalized records using an adapter and a model
+ * factory. The factory (createClient, createContact, …) decides which shared
+ * model the rows are normalized into; everything else is adapter-driven.
  *
  * @param {Array<Object<string,string>>} rows - output of parseCsv
  * @param {object} adapter - a customer adapter config
+ * @param {(data: object) => object} createRecord - shared-model factory
  * @returns {{ records: object[], summary: object }}
  */
-function mapClients(rows, adapter) {
+function mapRecords(rows, adapter, createRecord) {
   const { columnMap, valueMaps = {}, typeHints = {}, dateFormat } = adapter;
 
   // Which source columns do we recognize? Everything else is "unmapped".
@@ -120,7 +126,7 @@ function mapClients(rows, adapter) {
       normalized[targetField] = value;
     }
 
-    return createClient(normalized);
+    return createRecord(normalized);
   });
 
   return {
@@ -135,4 +141,24 @@ function mapClients(rows, adapter) {
   };
 }
 
-module.exports = { mapClients, parseDate, parseNumber };
+/**
+ * Maps parsed CSV rows into normalized Client records using an adapter.
+ * @param {Array<Object<string,string>>} rows
+ * @param {object} adapter
+ * @returns {{ records: object[], summary: object }}
+ */
+function mapClients(rows, adapter) {
+  return mapRecords(rows, adapter, createClient);
+}
+
+/**
+ * Maps parsed CSV rows into normalized Contact records using an adapter.
+ * @param {Array<Object<string,string>>} rows
+ * @param {object} adapter
+ * @returns {{ records: object[], summary: object }}
+ */
+function mapContacts(rows, adapter) {
+  return mapRecords(rows, adapter, createContact);
+}
+
+module.exports = { mapRecords, mapClients, mapContacts, parseDate, parseNumber };

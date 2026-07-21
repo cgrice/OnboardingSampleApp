@@ -10,8 +10,8 @@ test.describe('Import Clients', () => {
     // The Data Mapping tab renders the importer's heading and controls.
     await expect(page.getByRole('heading', { name: 'Import Clients' })).toBeVisible();
 
-    // Customer A should be preselected in the dropdown.
-    await expect(page.locator('select')).toContainText('Customer A');
+    // Customer A should be preselected in the customer dropdown.
+    await expect(page.getByRole('combobox').nth(1)).toContainText('Customer A');
 
     // Upload the real sample CSV.
     const csvPath = path.resolve(

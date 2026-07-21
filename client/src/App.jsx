@@ -259,7 +259,44 @@ const CLIENT_COLUMNS = [
   { key: 'primaryContact', label: 'Primary Contact' }
 ];
 
+const CONTACT_COLUMNS = [
+  { key: 'id', label: 'ID' },
+  { key: 'clientId', label: 'Client ID' },
+  { key: 'firstName', label: 'First Name' },
+  { key: 'lastName', label: 'Last Name' },
+  { key: 'email', label: 'Email' },
+  { key: 'phone', label: 'Phone' },
+  { key: 'role', label: 'Role' },
+  { key: 'status', label: 'Status' },
+  { key: 'preferredContactMethod', label: 'Preferred Contact' },
+  { key: 'department', label: 'Department' }
+];
+
+// Each entity the importer supports is described declaratively; the ImportTab
+// is entity-agnostic and driven by whichever config the Type selector picks.
+const IMPORT_ENTITIES = [
+  {
+    id: 'clients',
+    label: 'Clients',
+    heading: 'Import Clients',
+    description: 'Upload a client CSV export and map it to the shared data model.',
+    adaptersUrl: '/api/import/adapters',
+    importUrl: '/api/import/clients',
+    columns: CLIENT_COLUMNS
+  },
+  {
+    id: 'contacts',
+    label: 'Contacts',
+    heading: 'Import Contacts',
+    description: 'Upload a contact CSV export and map it to the shared data model.',
+    adaptersUrl: '/api/import/contact-adapters',
+    importUrl: '/api/import/contacts',
+    columns: CONTACT_COLUMNS
+  }
+];
+
 function ImportTab() {
+  const [entityId, setEntityId] = useState(IMPORT_ENTITIES[0].id);
   const [adapters, setAdapters] = useState([]);
   const [customer, setCustomer] = useState('');
   const [file, setFile] = useState(null);
@@ -267,15 +304,25 @@ function ImportTab() {
   const [error, setError] = useState(null);
   const [importing, setImporting] = useState(false);
 
+  const config = IMPORT_ENTITIES.find((e) => e.id === entityId);
+
+  const handleEntityChange = (e) => {
+    setEntityId(e.target.value);
+    // Switching entity invalidates any prior file selection or result.
+    setFile(null);
+    setResult(null);
+    setError(null);
+  };
+
   useEffect(() => {
-    fetch('/api/import/adapters')
+    fetch(config.adaptersUrl)
       .then((res) => res.json())
       .then((list) => {
         setAdapters(list);
         if (list.length > 0) setCustomer(list[0].key);
       })
       .catch((err) => setError(`Could not load customers: ${err.message}`));
-  }, []);
+  }, [config.adaptersUrl]);
 
   const handleImport = async () => {
     if (!file || !customer) return;
@@ -284,7 +331,7 @@ function ImportTab() {
     setResult(null);
     try {
       const text = await file.text();
-      const res = await fetch(`/api/import/clients?customer=${encodeURIComponent(customer)}`, {
+      const res = await fetch(`${config.importUrl}?customer=${encodeURIComponent(customer)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'text/csv' },
         body: text
@@ -301,12 +348,21 @@ function ImportTab() {
 
   return (
     <div>
-      <h2>Import Clients</h2>
+      <h2>{config.heading}</h2>
       <p style={{ color: '#6b7280', marginBottom: '20px' }}>
-        Upload a client CSV export and map it to the shared data model.
+        {config.description}
       </p>
 
       <div className="import-controls" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '20px' }}>
+        <label>
+          Type:{' '}
+          <select value={entityId} onChange={handleEntityChange}>
+            {IMPORT_ENTITIES.map((e) => (
+              <option key={e.id} value={e.id}>{e.label}</option>
+            ))}
+          </select>
+        </label>
+
         <label>
           Customer:{' '}
           <select value={customer} onChange={(e) => setCustomer(e.target.value)}>
@@ -333,12 +389,12 @@ function ImportTab() {
         </div>
       )}
 
-      {result && <ImportResult result={result} />}
+      {result && <ImportResult result={result} columns={config.columns} />}
     </div>
   );
 }
 
-function ImportResult({ result }) {
+function ImportResult({ result, columns }) {
   const { summary, records, customer } = result;
   return (
     <div>
@@ -365,7 +421,7 @@ function ImportResult({ result }) {
         <table className="import-table" style={{ borderCollapse: 'collapse', width: '100%', fontSize: '0.85rem' }}>
           <thead>
             <tr>
-              {CLIENT_COLUMNS.map((col) => (
+              {columns.map((col) => (
                 <th key={col.key} style={{ textAlign: 'left', padding: '6px 10px', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' }}>
                   {col.label}
                 </th>
@@ -375,7 +431,7 @@ function ImportResult({ result }) {
           <tbody>
             {records.map((row, i) => (
               <tr key={row.id || i}>
-                {CLIENT_COLUMNS.map((col) => (
+                {columns.map((col) => (
                   <td key={col.key} style={{ padding: '6px 10px', borderBottom: '1px solid #f3f4f6', whiteSpace: 'nowrap' }}>
                     {String(row[col.key])}
                   </td>

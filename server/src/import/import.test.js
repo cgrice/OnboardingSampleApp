@@ -4,9 +4,15 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const { parseCsv, parseLine } = require('./csvParser');
-const { mapClients, parseDate, parseNumber } = require('./mapper');
+const { mapClients, mapContacts, parseDate, parseNumber } = require('./mapper');
 const customerA = require('./adapters/customerA');
-const { getAdapter, listAdapters } = require('./adapters');
+const customerAContacts = require('./adapters/contacts/customerA');
+const {
+  getAdapter,
+  listAdapters,
+  getContactAdapter,
+  listContactAdapters
+} = require('./adapters');
 
 describe('csvParser', () => {
   it('parses headers into keyed row objects', () => {
@@ -114,10 +120,74 @@ describe('mapClients (Customer A adapter)', () => {
   });
 });
 
+describe('mapContacts (Customer A adapter)', () => {
+  it('renames columns and maps picklist values', () => {
+    const rows = parseCsv(
+      'Contact ID,Client ID,First Name,Last Name,Email,Phone,Role,Status,Preferred Contact Method,Department\n' +
+        'CT001,C001,John,Smith,john.smith@riverside-mfg.com,(555) 123-4567,Owner,Active,Email,Executive'
+    );
+    const { records, summary } = mapContacts(rows, customerAContacts);
+    const c = records[0];
+
+    assert.strictEqual(c.id, 'CT001');
+    assert.strictEqual(c.clientId, 'C001');
+    assert.strictEqual(c.firstName, 'John');
+    assert.strictEqual(c.lastName, 'Smith');
+    assert.strictEqual(c.email, 'john.smith@riverside-mfg.com');
+    assert.strictEqual(c.role, 'Owner');
+    assert.strictEqual(c.status, 'active');
+    assert.strictEqual(c.preferredContactMethod, 'email');
+    assert.strictEqual(c.department, 'Executive');
+    assert.strictEqual(summary.totalRows, 1);
+    assert.strictEqual(summary.unmappedValues, 0);
+  });
+
+  it('passes unknown picklist values through and counts them', () => {
+    const rows = parseCsv('Contact ID,Status\nCT001,Archived');
+    const { records, summary } = mapContacts(rows, customerAContacts);
+    assert.strictEqual(records[0].status, 'Archived');
+    assert.strictEqual(summary.unmappedValues, 1);
+  });
+
+  it('reports unmapped source columns', () => {
+    const rows = parseCsv('Contact ID,Mystery Column\nCT001,xyz');
+    const { summary } = mapContacts(rows, customerAContacts);
+    assert.deepStrictEqual(summary.unmappedColumns, ['Mystery Column']);
+  });
+
+  it('maps the real sample-data contacts.csv end to end', () => {
+    const csvPath = path.join(
+      __dirname,
+      '../../../sample-data/CustomerA_ABCAccounting/contacts.csv'
+    );
+    const csv = fs.readFileSync(csvPath, 'utf8');
+    const rows = parseCsv(csv);
+    const { records, summary } = mapContacts(rows, customerAContacts);
+
+    assert.ok(records.length >= 10, 'expected at least 10 contact records');
+    assert.strictEqual(summary.mapped, records.length);
+    // Every record must have an id, a client link and a canonical status.
+    for (const r of records) {
+      assert.ok(r.id, 'record has id');
+      assert.ok(r.clientId, 'record has clientId');
+      assert.ok(['active', 'inactive', 'pending'].includes(r.status), `status ${r.status} is canonical`);
+    }
+    // No unmapped columns in the known-good fixture.
+    assert.deepStrictEqual(summary.unmappedColumns, []);
+  });
+});
+
 describe('adapter registry', () => {
   it('looks up customerA and lists adapters', () => {
     assert.strictEqual(getAdapter('customerA').key, 'customerA');
     assert.strictEqual(getAdapter('nope'), undefined);
     assert.ok(listAdapters().some((a) => a.key === 'customerA'));
+  });
+
+  it('looks up customerA contacts and lists contact adapters', () => {
+    assert.strictEqual(getContactAdapter('customerA').key, 'customerA');
+    assert.strictEqual(getContactAdapter('customerA').entity, 'contact');
+    assert.strictEqual(getContactAdapter('nope'), undefined);
+    assert.ok(listContactAdapters().some((a) => a.key === 'customerA'));
   });
 });
