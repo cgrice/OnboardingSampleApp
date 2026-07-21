@@ -3,8 +3,13 @@ const cors = require('cors');
 const store = require('./data/store');
 const { createCustomer, createDefaultOnboardingSteps } = require('./models');
 const { parseCsv } = require('./import/csvParser');
-const { mapClients } = require('./import/mapper');
-const { getAdapter, listAdapters } = require('./import/adapters');
+const { mapClients, mapContacts } = require('./import/mapper');
+const {
+  getAdapter,
+  listAdapters,
+  getContactAdapter,
+  listContactAdapters
+} = require('./import/adapters');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -122,6 +127,36 @@ app.post('/api/import/clients', (req, res) => {
 
   const rows = parseCsv(csvText);
   const { records, summary } = mapClients(rows, adapter);
+
+  res.json({ customer: adapter.label, records, summary });
+});
+
+// List available contact import adapters (for the UI customer dropdown)
+app.get('/api/import/contact-adapters', (req, res) => {
+  res.json(listContactAdapters());
+});
+
+// Import & map a Contacts CSV.
+// Body: raw CSV text. Query: ?customer=<adapterKey>
+app.post('/api/import/contacts', (req, res) => {
+  const customerKey = req.query.customer;
+  const adapter = getContactAdapter(customerKey);
+
+  if (!adapter) {
+    return res.status(400).json({
+      error: `Unknown customer '${customerKey}'. Known: ${listContactAdapters()
+        .map((a) => a.key)
+        .join(', ')}`
+    });
+  }
+
+  const csvText = typeof req.body === 'string' ? req.body : '';
+  if (!csvText.trim()) {
+    return res.status(400).json({ error: 'Empty CSV body' });
+  }
+
+  const rows = parseCsv(csvText);
+  const { records, summary } = mapContacts(rows, adapter);
 
   res.json({ customer: adapter.label, records, summary });
 });

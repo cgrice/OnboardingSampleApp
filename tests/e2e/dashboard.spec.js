@@ -13,12 +13,13 @@ test.describe('Onboarding Dashboard', () => {
     await page.goto('/');
 
     // Verify all navigation tabs are present
-    await expect(page.locator('.tab')).toHaveCount(5);
+    await expect(page.locator('.tab')).toHaveCount(6);
     await expect(page.getByRole('button', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Customer Info' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Data Mapping' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Tenant Setup' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Import' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Import', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Import Contacts' })).toBeVisible();
   });
 
   test('should display example customer in onboarding queue', async ({ page }) => {
